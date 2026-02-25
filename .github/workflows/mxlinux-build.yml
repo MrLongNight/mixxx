@@ -1,0 +1,64 @@
+name: Build Mixxx for MX Linux 23.6 (T8300)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: debian:bookworm
+    
+    steps:
+      - name: Install Git and sudo
+        run: |
+          apt-get update
+          apt-get install -y git sudo curl wget build-essential cmake
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Build Environment
+        run: |
+          chmod +x tools/debian_buildenv.sh
+          export DEBIAN_FRONTEND=noninteractive
+          ./tools/debian_buildenv.sh setup
+
+      - name: Install hidapi 0.14.0+ from source
+        run: |
+          wget https://github.com/libusb/hidapi/archive/refs/tags/hidapi-0.14.0.tar.gz
+          tar xzf hidapi-0.14.0.tar.gz
+          cd hidapi-hidapi-0.14.0
+          cmake -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release .
+          make -j$(nproc)
+          make install
+
+      - name: Configure CMake
+        run: |
+          mkdir build
+          cd build
+          # Optimization for Intel Core 2 Duo T8300 (Penryn)
+          cmake .. \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_FLAGS="-march=core2" \
+            -DCMAKE_CXX_FLAGS="-march=core2" \
+            -DOPTIMIZE=OFF \
+            -DCMAKE_INSTALL_PREFIX=/usr
+
+      - name: Build
+        run: |
+          cd build
+          make -j$(nproc)
+
+      - name: Create Package
+        run: |
+          cd build
+          make install DESTDIR=../install_dir
+          cd ../install_dir
+          tar -czvf ../mixxx-mxlinux-t8300.tar.gz .
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mixxx-mxlinux-t8300
+          path: mixxx-mxlinux-t8300.tar.gz
