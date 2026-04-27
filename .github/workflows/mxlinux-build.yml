@@ -50,15 +50,22 @@ jobs:
           cd build
           make -j$(nproc)
 
-      - name: Create Package
+      - name: Create Packages (Tarball and DEB)
         run: |
           cd build
+          # 1. Erstelle Tarball (wie bisher)
           make install DESTDIR=../install_dir
           cd ../install_dir
           tar -czvf ../mixxx-mxlinux-t8300.tar.gz .
+          
+          # 2. Erstelle .deb Paket via CPack
+          cd ../build
+          cpack -G DEB
 
-      - name: Upload Artifact
+      - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: mixxx-mxlinux-t8300
-          path: mixxx-mxlinux-t8300.tar.gz
+          name: mixxx-mxlinux-t8300-package
+          path: |
+            mixxx-mxlinux-t8300.tar.gz
+            build/*.deb
